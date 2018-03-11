@@ -1,0 +1,6 @@
+# SNAPpy output files
+*.map
+*.spy
+
+# Python output files
+.tox/
