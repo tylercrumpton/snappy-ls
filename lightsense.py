@@ -60,16 +60,14 @@ initialized = False
 
 def _read_battery():
     """Returns the current battery voltage in mV."""
-    global batt
     writePin(VREF_EN, True)
-    batt = readAdc(VREF_CH)
+    batt_val = readAdc(VREF_CH)
     writePin(VREF_EN, False)
-    return ((30690/batt)*100)/3  # Convert to mV
+    return ((30690/batt_val)*100)/3  # Convert to mV
 
 
 def _read_photocell():
     """Returns the current average photocell value."""
-    global photo
     writePin(LIGHT_EN, True)
     i = 0
     sum = 0
@@ -77,13 +75,13 @@ def _read_photocell():
         if i > 1:  # Throw away first couple
             sum += readAdc(LIGHT_CH)
         i += 1
-    photo = sum/(i-2)
+    photo_val = sum/(i-2)
     writePin(LIGHT_EN, False)
+    return photo_val
 
 
 def _read_temperature():
     """Returns the current average temperature value."""
-    global temperature
     writePin(TEMPERATURE_EN, True)
     i = 0
     sum = 0
@@ -91,8 +89,9 @@ def _read_temperature():
         if i > 1:  # Throw away first couple
             sum += readAdc(TEMPERATURE_CH)
         i += 1
-    temperature = sum/(i-2)
+    temperature_val = sum/(i-2)
     writePin(TEMPERATURE_EN, False)
+    return temperature_val
 
 
 def _update_sensors():
