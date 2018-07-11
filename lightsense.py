@@ -2,7 +2,10 @@
 DS_PACKET_SERIAL = 6
 DS_NULL = 0
 
-LS_VERSION = "v1.0.0"
+LS_VERSION = "v2.0.0"
+
+# If the LSP module is installed, set this to true to get more sensor data:
+IS_LSPLUS = False
 
 # I/O
 LED_PIN = 4       # Active low LED
@@ -19,6 +22,12 @@ LIGHT_EN = 12
 VREF_CH = 3
 TEMPERATURE_CH = 0
 LIGHT_CH = 5
+
+# LSP (LightSensePlus module) parameters
+LSP_I2C_ADDRESS = 0x27 << 1  # I2C address of the Honeywell HumidIcon
+STALE_MASK = 0x40  # Bitmask for the "stale" data bit status flag
+HI_HUMID_MASK = 0x3f  # Bitmask for the 'hi' humidity data byte
+I2C_RETRIES = 3
 
 STARTUP_DELAY = 10  # Seconds to wait after powered on before starting
 seconds_since_startup = 0
@@ -54,6 +63,7 @@ current_rpc_buffer = None
 batt = 0
 photo = 0
 temperature = 0
+humidity = 0
 
 initialized = False
 
@@ -94,13 +104,30 @@ def _read_temperature():
     return temperature_val
 
 
+def _read_lsp():
+    i2cWrite(chr(LSP_I2C_ADDRESS), I2C_RETRIES, False)
+    sleep(1,1)
+    read_address = chr(LSP_I2C_ADDRESS | 1)
+    lsp_data = i2cRead(read_address, 4, I2C_RETRIES, False)
+    return lsp_data
+
+
 def _update_sensors():
     """Reads all three sensors and stores their values."""
-    global batt, photo, temperature
+    global batt, photo, temperature, humidity
 
     batt = _read_battery()
     photo = _read_photocell()
-    temperature = _read_temperature()
+    if IS_LSPLUS:
+        lsp_data = _read_lsp()
+        if lsp_data is None or len(lsp_data) != 4:
+            humidity = "BROKEN"
+            temperature = "None"
+        else:
+            humidity = ((ord(lsp_data[0]) & HI_HUMID_MASK) << 8) + ord(lsp_data[1])
+            temperature = ((ord(lsp_data[2]) << 8) + ord(lsp_data[1]) >> 2)
+    else:
+        temperature = _read_temperature()
 
 
 def _send_report(report_type):
@@ -109,7 +136,10 @@ def _send_report(report_type):
 
     _update_sensors()
     writePin(LED_PIN, False)
-    mcastRpc(mcast_group, mcast_ttl, "ls_report", LS_VERSION, batt, photo, temperature, report_type)
+    if IS_LSPLUS:
+        mcastRpc(mcast_group, mcast_ttl, "lsp_report", LS_VERSION, batt, photo, temperature, humidity, report_type)
+    else:
+        mcastRpc(mcast_group, mcast_ttl, "ls_report", LS_VERSION, batt, photo, temperature, report_type)
     current_rpc_buffer = getInfo(9)
 
 
@@ -216,6 +246,9 @@ def _init():
 
     # Default all pins to output/low for minimum power consumption
     _set_pins_low_power()
+
+    if IS_LSPLUS:
+        i2cInit(True)
 
     # Precharge ADC
     _update_sensors()
