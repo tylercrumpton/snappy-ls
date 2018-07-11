@@ -80,12 +80,12 @@ def _read_photocell():
     """Returns the current average photocell value."""
     writePin(LIGHT_EN, True)
     i = 0
-    sum = 0
+    total_sum = 0
     while i < 32:  # Average reading
         if i > 1:  # Throw away first couple
-            sum += readAdc(LIGHT_CH)
+            total_sum += readAdc(LIGHT_CH)
         i += 1
-    photo_val = sum/(i-2)
+    photo_val = total_sum/(i-2)
     writePin(LIGHT_EN, False)
     return photo_val
 
@@ -94,12 +94,12 @@ def _read_temperature():
     """Returns the current average temperature value."""
     writePin(TEMPERATURE_EN, True)
     i = 0
-    sum = 0
+    total_sum = 0
     while i < 32:  # Average reading
         if i > 1:  # Throw away first couple
-            sum += readAdc(TEMPERATURE_CH)
+            total_sum += readAdc(TEMPERATURE_CH)
         i += 1
-    temperature_val = sum/(i-2)
+    temperature_val = total_sum/(i-2)
     writePin(TEMPERATURE_EN, False)
     return temperature_val
 
@@ -196,19 +196,19 @@ def _sleep(time):
     """Sleep for an amount of time, and report event based on early wake."""
     rx(False)  # Radio remains off until next tx
 
-    ticksRemain = sleep(0, time)
-    return EV_EXPIRY if ticksRemain == 0 else EV_MOTION
+    ticks_remain = sleep(0, time)
+    return EV_EXPIRY if ticks_remain == 0 else EV_MOTION
 
 
 @setHook(HOOK_RPC_SENT)
-def _report_sent(bufRef):
+def _report_sent(buf_ref):
     """Kick off the FSM after an RPC has been sent."""
     global current_rpc_buffer
 
     # Don't run through the state machine until after startup period
     if initialized:
         writePin(LED_PIN, True)
-        if bufRef == current_rpc_buffer:
+        if buf_ref == current_rpc_buffer:
             current_rpc_buffer = None
             _fsm(EV_RPTSENT)
 
